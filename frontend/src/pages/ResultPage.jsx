@@ -7,7 +7,7 @@ export default function ResultPage() {
   
   // Navigation
   const [activeModule, setActiveModule] = useState('dashboard'); // 'dashboard', 'results', 'gradesheet', 'attendance', 'hallticket', 'fees', 'notices', 'profile'
-  const [selectedSemester, setSelectedSemester] = useState(6);
+  const [selectedSemester, setSelectedSemester] = useState(1);
   
   // Data States
   const [overview, setOverview] = useState(null);
@@ -30,10 +30,13 @@ export default function ResultPage() {
         setLoading(true);
         setError('');
         
-        const [overviewRes, semRes, attRes, feesRes, noticesRes, htRes] = await Promise.all([
-          axiosClient.get('/academic/overview'),
-          axiosClient.get(`/academic/results?semester=6`),
-          axiosClient.get(`/academic/attendance?semester=6`),
+        const overviewRes = await axiosClient.get('/academic/overview');
+        const currentSem = overviewRes.data.student.currentSemester;
+        setSelectedSemester(currentSem);
+        
+        const [semRes, attRes, feesRes, noticesRes, htRes] = await Promise.all([
+          axiosClient.get(`/academic/results?semester=${currentSem}`),
+          axiosClient.get(`/academic/attendance?semester=${currentSem}`),
           axiosClient.get('/academic/fees'),
           axiosClient.get('/academic/notices'),
           axiosClient.get('/academic/hall-ticket')
@@ -357,20 +360,18 @@ export default function ResultPage() {
 
               {/* Semester Switcher Tabs */}
               <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#eaeaea]">
-                {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
+                {Array.from({ length: overview.student.currentSemester }, (_, i) => i + 1).map(sem => (
                   <button
                     key={sem}
                     onClick={() => handleSemesterChange(sem)}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 flex-shrink-0 ${
                       selectedSemester === sem
                         ? 'bg-[#0072bc] text-white shadow-sm'
-                        : 'bg-white text-[#666666] border border-[#eaeaea] hover:border-slate-700'
+                        : 'bg-white text-slate-900 border border-[#eaeaea] hover:border-[#0072bc]'
                     }`}
                   >
                     <span>Semester {sem}</span>
-                    {sem <= 6 && (
-                      <span className={`w-2 h-2 rounded-full ${selectedSemester === sem ? 'bg-emerald-400' : 'bg-emerald-500'}`}></span>
-                    )}
+                    <span className={`w-2 h-2 rounded-full ${selectedSemester === sem ? 'bg-emerald-400' : 'bg-emerald-500'}`}></span>
                   </button>
                 ))}
               </div>
