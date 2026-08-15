@@ -1,4 +1,4 @@
-# Vishwakarma Institute of Technology (VIT) - Enterprise Academic ERP System
+# Vishwakarma Institute of Technology (VIT) - Academic ERP System
 
 Production-grade Academic Enterprise Resource Planning (ERP) and Multi-Semester Result Evaluation System engineered for higher education institutions. Built with a decoupled client-server architecture featuring React, Node.js/Express, Sequelize ORM, and SQLite.
 
