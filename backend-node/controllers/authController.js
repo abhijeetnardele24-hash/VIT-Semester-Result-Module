@@ -1,42 +1,71 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
+import { Op } from 'sequelize';
 
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET || 'secret', {
-    expiresIn: '1d',
+    expiresIn: '7d',
   });
 };
 
 export const loginUser = async (req, res) => {
-  const { prnNumber, password } = req.body;
-  const cleanPrn = prnNumber.trim();
+  const { prnNumber, identifier, password } = req.body;
+  const rawInput = (identifier || prnNumber || '').trim();
+
+  if (!rawInput) {
+    return res.status(400).json({ message: 'PRN Number or Institutional Email is required.' });
+  }
+
+  if (!password) {
+    return res.status(400).json({ message: 'Password is required.' });
+  }
+
+  // Institutional Email Domain Enforcement
+  if (rawInput.includes('@')) {
+    const emailLower = rawInput.toLowerCase();
+    if (!emailLower.endsWith('@vit.edu')) {
+      return res.status(403).json({ 
+        message: 'Access Denied: Only official university email addresses ending with @vit.edu are authorized to log in.' 
+      });
+    }
+  }
 
   try {
-    console.log("Login attempt for PRN:", cleanPrn);
-    const user = await User.findOne({ where: { prnNumber: cleanPrn } });
+    const cleanInput = rawInput.toLowerCase();
     
-    if (user) {
-      console.log("User found. Hashed password in DB:", user.password);
-      const isMatch = await user.matchPassword(password);
-      console.log("Password match result:", isMatch);
-      
-      if (isMatch) {
-      res.json({
-        id: user.id,
-        prnNumber: user.prnNumber,
-        name: user.name,
-        role: user.role,
-        token: generateToken(user.id, user.role),
-      });
-      } else {
-        console.log("Password mismatch for user:", prnNumber);
-        res.status(401).json({ message: 'Invalid PRN or password' });
+    // Find user by either PRN or Institutional Email
+    const user = await User.findOne({
+      where: {
+        [Op.or]: [
+          { prnNumber: rawInput },
+          { email: cleanInput }
+        ]
       }
-    } else {
-      console.log("User not found:", prnNumber);
-      res.status(401).json({ message: 'Invalid PRN or password' });
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials. User not registered in institutional database.' });
     }
+
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid password. Please check your credentials.' });
+    }
+
+    // Return authenticated user payload
+    res.json({
+      id: user.id,
+      prnNumber: user.prnNumber,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      department: user.department,
+      currentSemester: user.currentSemester,
+      cgpa: user.cgpa,
+      token: generateToken(user.id, user.role),
+    });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: error.message });
   }
 };

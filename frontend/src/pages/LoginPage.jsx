@@ -4,20 +4,35 @@ import axiosClient from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
-  const [prnNumber, setPrnNumber] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  // Check email domain validity dynamically
+  const isEmail = identifier.includes('@');
+  const isValidVitEmail = isEmail && identifier.trim().toLowerCase().endsWith('@vit.edu');
+  const isInvalidDomain = isEmail && !isValidVitEmail;
+
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
     setError('');
+
+    if (isInvalidDomain) {
+      setError('Access Denied: Only institutional emails ending with @vit.edu are authorized.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await axiosClient.post('/auth/login', { prnNumber, password });
+      const response = await axiosClient.post('/auth/login', { 
+        identifier: identifier.trim(),
+        prnNumber: identifier.trim(), 
+        password 
+      });
       const { token, ...userData } = response.data;
       login(token, userData);
       
@@ -29,35 +44,36 @@ export default function LoginPage() {
         navigate('/admin');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      setError(err.response?.data?.message || 'Login failed. Please verify your PRN/Email and password.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickLogin = (prn, pwd) => {
-    setPrnNumber(prn);
+  const handleQuickLogin = (userIdentifier, pwd) => {
+    setIdentifier(userIdentifier);
     setPassword(pwd);
-    // Submit
-    setTimeout(() => {
-      axiosClient.post('/auth/login', { prnNumber: prn, password: pwd })
-        .then(res => {
-          const { token, ...userData } = res.data;
-          login(token, userData);
-          if (userData.role === 'STUDENT') navigate('/result');
-          else if (userData.role === 'FACULTY') navigate('/faculty');
-          else navigate('/admin');
-        })
-        .catch(err => {
-          setError(err.response?.data?.message || 'Login failed');
-        });
-    }, 100);
+    setError('');
+    setLoading(true);
+    
+    axiosClient.post('/auth/login', { identifier: userIdentifier, prnNumber: userIdentifier, password: pwd })
+      .then(res => {
+        const { token, ...userData } = res.data;
+        login(token, userData);
+        if (userData.role === 'STUDENT') navigate('/result');
+        else if (userData.role === 'FACULTY') navigate('/faculty');
+        else navigate('/admin');
+      })
+      .catch(err => {
+        setError(err.response?.data?.message || 'Login failed');
+      })
+      .finally(() => setLoading(false));
   };
 
   return (
     <div className="min-h-screen flex bg-white font-inter">
       
-      {/* Left Panel - Institutional Branding */}
+      {/* Left Panel - Institutional Information & Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#fafafa] border-r border-[#eaeaea] flex-col justify-between p-12 relative overflow-hidden">
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
         
@@ -68,7 +84,7 @@ export default function LoginPage() {
             </div>
             <div>
               <h2 className="text-base font-black tracking-tight text-black">Vishwakarma Institute of Technology</h2>
-              <span className="text-xs text-[#888888] font-medium block">Autonomous Institute Affiliated to SPPU</span>
+              <span className="text-xs text-[#888888] font-medium block">Autonomous Institute Affiliated to SPPU, Pune</span>
             </div>
           </div>
           
@@ -77,16 +93,16 @@ export default function LoginPage() {
               Enterprise Academic & Multi-Semester ERP Portal
             </h1>
             <p className="text-[#666666] text-sm leading-relaxed mb-6 font-normal">
-              Unified institutional platform powering complete multi-semester gradebook engines, live classroom attendance logging, fee clearance verification, and digital hall ticket issuance.
+              Secure single sign-on portal for enrolled students, authorized faculty members, and institutional deans. Access academic transcripts, live attendance monitoring, and digital hall tickets.
             </p>
             
             <div className="space-y-3">
               {[
+                'Single Sign-On with Official @vit.edu University Email or PRN',
                 'Multi-Semester Gradebook & CGPA Progression Engine',
-                'Printable Official University Grade Cards & Transcripts',
-                'Subject-wise Attendance & Defaulter Radar (<75%)',
-                'Digital Examination Hall Tickets with Eligibility Verification',
-                'Faculty Marks Entry & Live Classroom Attendance Logger'
+                'Official Printable Grade Sheets & Transcripts',
+                'Live Classroom Attendance Logging & Defaulter Radar (<75%)',
+                'Digital Examination Hall Tickets with Eligibility Check'
               ].map((feat, idx) => (
                 <div key={idx} className="flex items-center gap-3 text-xs font-semibold text-[#333333]">
                   <div className="w-4 h-4 rounded-full bg-black text-white flex items-center justify-center text-[10px] flex-shrink-0">✓</div>
@@ -110,7 +126,7 @@ export default function LoginPage() {
           
           <div className="text-center">
             <h2 className="text-2xl font-black text-black tracking-tight">Institutional Sign In</h2>
-            <p className="text-[#666666] mt-1 text-xs">Enter your university credentials to access your portal</p>
+            <p className="text-[#666666] mt-1 text-xs">Enter your university email (<span className="font-mono font-bold text-black">@vit.edu</span>) or PRN number</p>
           </div>
 
           {error && (
@@ -121,16 +137,27 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-bold text-[#444444] mb-1 uppercase tracking-wider">
-                PRN / Faculty / Admin ID
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-[#444444] uppercase tracking-wider">
+                  Institutional Email or PRN
+                </label>
+                {isEmail && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                    isValidVitEmail ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {isValidVitEmail ? '✓ Valid @vit.edu Domain' : '⚠️ Must end with @vit.edu'}
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 required
-                value={prnNumber}
-                onChange={(e) => setPrnNumber(e.target.value)}
-                className="glass-input block w-full px-3.5 py-2.5 rounded-xl text-black text-xs font-mono font-bold"
-                placeholder="e.g. 23BCE0001, FACULTY01, ADMIN01"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                className={`glass-input block w-full px-3.5 py-2.5 rounded-xl text-black text-xs font-bold ${
+                  isInvalidDomain ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''
+                }`}
+                placeholder="e.g. aarav.sharma@vit.edu or 23BCE0001"
               />
             </div>
             
@@ -150,7 +177,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isInvalidDomain}
               className="w-full py-3 bg-black text-white text-xs font-bold rounded-xl hover:bg-[#222222] shadow-sm transition-all disabled:opacity-50"
             >
               {loading ? 'Authenticating...' : 'Sign In to Portal'}
@@ -160,35 +187,35 @@ export default function LoginPage() {
           {/* Quick Demo Login Credentials Bar */}
           <div className="pt-4 border-t border-[#eaeaea] space-y-2.5">
             <span className="block text-[10px] font-bold text-[#888888] uppercase tracking-wider text-center">
-              1-Click Demo Accounts
+              1-Click Demo Accounts (@vit.edu)
             </span>
 
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleQuickLogin('23BCE0001', 'password123')}
+                onClick={() => handleQuickLogin('aarav.sharma@vit.edu', 'password123')}
                 className="p-2 rounded-lg border border-[#eaeaea] bg-[#fafafa] hover:bg-black hover:text-white transition-all text-center group"
               >
                 <span className="block text-[11px] font-bold">Aarav (Student)</span>
-                <span className="block text-[9px] font-mono text-[#888888] group-hover:text-gray-300">23BCE0001</span>
+                <span className="block text-[9px] font-mono text-[#888888] group-hover:text-gray-300">aarav.sharma@vit.edu</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleQuickLogin('FACULTY01', 'password123')}
+                onClick={() => handleQuickLogin('rajesh.rao@vit.edu', 'password123')}
                 className="p-2 rounded-lg border border-[#eaeaea] bg-[#fafafa] hover:bg-black hover:text-white transition-all text-center group"
               >
                 <span className="block text-[11px] font-bold">Dr. Rao (Faculty)</span>
-                <span className="block text-[9px] font-mono text-[#888888] group-hover:text-gray-300">FACULTY01</span>
+                <span className="block text-[9px] font-mono text-[#888888] group-hover:text-gray-300">rajesh.rao@vit.edu</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleQuickLogin('ADMIN01', 'password123')}
+                onClick={() => handleQuickLogin('dean.academics@vit.edu', 'password123')}
                 className="p-2 rounded-lg border border-[#eaeaea] bg-[#fafafa] hover:bg-black hover:text-white transition-all text-center group"
               >
                 <span className="block text-[11px] font-bold">Dean (Admin)</span>
-                <span className="block text-[9px] font-mono text-[#888888] group-hover:text-gray-300">ADMIN01</span>
+                <span className="block text-[9px] font-mono text-[#888888] group-hover:text-gray-300">dean.academics@vit.edu</span>
               </button>
             </div>
           </div>
