@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 import vitLogoFull from '../assets/vit_logo_full.png';
 
 export default function LoginPage() {
@@ -33,20 +34,39 @@ export default function LoginPage() {
         prnNumber: identifier.trim(), 
         password 
       });
-      const { token, ...userData } = response.data;
-      login(token, userData);
-      
-      if (userData.role === 'STUDENT') {
-        navigate('/result');
-      } else if (userData.role === 'FACULTY') {
-        navigate('/faculty');
-      } else {
-        navigate('/admin');
-      }
+      handleLoginSuccess(response.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Authentication failed. Please verify your PRN or Institutional Email.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('');
+    setLoading(true);
+    try {
+      const response = await axiosClient.post('/auth/google', {
+        token: credentialResponse.credential
+      });
+      handleLoginSuccess(response.data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Google Authentication failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoginSuccess = (data) => {
+    const { token, ...userData } = data;
+    login(token, userData);
+    
+    if (userData.role === 'STUDENT') {
+      navigate('/result');
+    } else if (userData.role === 'FACULTY') {
+      navigate('/faculty');
+    } else {
+      navigate('/admin');
     }
   };
 
@@ -141,6 +161,27 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          <div className="relative mt-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-[#fafafa] text-slate-500">Or continue with</span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-center w-full">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError('Google authentication failed.')}
+              useOneTap
+              theme="outline"
+              size="large"
+              width="100%"
+              text="continue_with"
+            />
+          </div>
 
           <div className="mt-8 text-center text-xs text-slate-400">
             Protected by 256-bit SSL encryption. <br />
