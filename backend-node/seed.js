@@ -113,7 +113,7 @@ const seedData = async () => {
     // 3. Seed 10 Realistic Students
     console.log('Seeding 10 Indian mock students with multi-semester records...');
     const studentsData = [
-      { prnNumber: '23BCE0099', name: 'Abhijeet Nardele', email: 'abhijeet.nardele24@vit.edu', password: 'password123', role: 'STUDENT', department: 'Computer Engineering', currentSemester: 6, batch: '2022-2026', phone: '+91 98000 00000', cgpa: 9.99 },
+      { prnNumber: '12410733', name: 'Abhijeet Nardele', email: 'abhijeet.nardele24@vit.edu', password: 'password123', role: 'STUDENT', department: 'Computer Engineering', currentSemester: 4, batch: '2024-2028', phone: '+91 98000 00000', cgpa: 9.99 },
       { prnNumber: '23BCE0001', name: 'Aarav Sharma', email: 'aarav.sharma@vit.edu', password: 'password123', role: 'STUDENT', department: 'Computer Engineering', currentSemester: 6, batch: '2022-2026', phone: '+91 98111 22334', cgpa: 9.15 },
       { prnNumber: '23BCE0002', name: 'Ananya Iyer', email: 'ananya.iyer@vit.edu', password: 'password123', role: 'STUDENT', department: 'Computer Engineering', currentSemester: 6, batch: '2022-2026', phone: '+91 98222 33445', cgpa: 9.42 },
       { prnNumber: '23BCE0003', name: 'Rohan Deshmukh', email: 'rohan.deshmukh@vit.edu', password: 'password123', role: 'STUDENT', department: 'Computer Engineering', currentSemester: 6, batch: '2022-2026', phone: '+91 98333 44556', cgpa: 8.65 },
@@ -139,8 +139,8 @@ const seedData = async () => {
     const allFeeRecordsToInsert = [];
 
     for (const student of createdStudents) {
-      // Seed Semesters 1 to 6
-      for (let sem = 1; sem <= 6; sem++) {
+      // Seed Semesters up to student's currentSemester
+      for (let sem = 1; sem <= student.currentSemester; sem++) {
         const semSubjects = createdSubjects.filter(s => s.semester === sem);
         
         for (const sub of semSubjects) {
